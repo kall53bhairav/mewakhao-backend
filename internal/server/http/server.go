@@ -28,7 +28,7 @@ type Server struct {
 func NewServer(validator validation.Validation, db *dbs.Database) *Server {
 	engine := gin.Default()
 	engine.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:3000", "https://mewakhao-frontend.vercel.app"},
+		AllowOrigins: []string{"http://localhost:3000", "https://mewakhao-frontend.vercel.app", "https://mewakhao.in", "https://www.mewakhao.in"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
 	}))
