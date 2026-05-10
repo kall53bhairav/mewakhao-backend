@@ -9,27 +9,44 @@ type User struct {
 	Email     string    `json:"email"`
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
+	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type RegisterReq struct {
-	Email     string `json:"email"  validate:"required,password"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Password  string `json:"password" validate:"required,password"`
-}
-
-type RegisterRes struct {
-	User User `json:"user"`
-}
-
+// Admin-only password login
 type LoginReq struct {
-	Email    string `json:"email" validate:"required,password"`
-	Password string `json:"password" validate:"required,password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 type LoginRes struct {
+	User         User   `json:"user"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+// OTP flow
+type CheckEmailReq struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type CheckEmailRes struct {
+	Exists bool `json:"exists"`
+}
+
+type SendOTPReq struct {
+	Email     string `json:"email" validate:"required,email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+type VerifyOTPReq struct {
+	Email string `json:"email" validate:"required,email"`
+	Code  string `json:"code" validate:"required"`
+}
+
+type VerifyOTPRes struct {
 	User         User   `json:"user"`
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`

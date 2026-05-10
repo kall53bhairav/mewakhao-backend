@@ -3,6 +3,7 @@ package http
 import (
 	cartHttp "ecom/internal/cart/http"
 	categoryHttp "ecom/internal/category/http"
+	orderHttp "ecom/internal/order/http"
 	productHttp "ecom/internal/product/http"
 	userHttp "ecom/internal/user/http"
 	"ecom/pkg/config"
@@ -74,5 +75,6 @@ func (s Server) MapRoutes() error {
 	categoryHttp.Routes(prefix, s.db, s.validator)
 	productHttp.Routes(prefix, s.db, s.validator)
 	cartHttp.Routes(prefix, s.db, s.validator)
+	orderHttp.Routes(prefix, s.db, s.validator)
 	return nil
 }

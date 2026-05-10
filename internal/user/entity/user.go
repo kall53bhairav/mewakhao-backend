@@ -28,9 +28,12 @@ type User struct {
 	Role      UserRole   `json:"role"`
 }
 
-func (user *User) BeforeCreate(tx *gorm.DB) error {
+func (user *User) BeforeCreate(_ *gorm.DB) error {
 	user.ID = uuid.New().String()
-	user.Password = utils.HashAndSalt([]byte(user.Password))
+	// Only hash non-empty passwords. Customer accounts use OTP and have no password.
+	if user.Password != "" {
+		user.Password = utils.HashAndSalt([]byte(user.Password))
+	}
 	if user.Role == "" {
 		user.Role = UserRoleCustomer
 	}

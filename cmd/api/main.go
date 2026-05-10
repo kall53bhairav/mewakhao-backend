@@ -3,9 +3,10 @@ package main
 import (
 	cartEntity "ecom/internal/cart/entity"
 	categoryEntity "ecom/internal/category/entity"
+	orderEntity "ecom/internal/order/entity"
 	productEntity "ecom/internal/product/entity"
 	"ecom/internal/server/http"
-	"ecom/internal/user/entity"
+	userEntity "ecom/internal/user/entity"
 	"ecom/pkg/config"
 	"ecom/pkg/dbs"
 
@@ -23,13 +24,18 @@ func main() {
 	}
 
 	err = db.AutoMigrate(
-		&entity.User{},
+		&userEntity.User{},
+		&userEntity.OTP{},
 		&categoryEntity.Category{},
 		&productEntity.Product{},
 		&productEntity.ProductVariant{},
 		&productEntity.NutritionalInfo{},
 		&cartEntity.Cart{},
 		&cartEntity.CartItem{},
+		&orderEntity.Order{},
+		&orderEntity.OrderItem{},
+		&orderEntity.ShippingAddress{},
+		&orderEntity.DeliveryRequest{},
 	)
 	if err != nil {
 		logger.Fatal("Failed to migrate")

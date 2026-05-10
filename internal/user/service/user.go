@@ -2,70 +2,149 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
+	"fmt"
+	"time"
+
 	"ecom/internal/user/dto"
 	"ecom/internal/user/entity"
 	"ecom/internal/user/repository"
+	"ecom/pkg/config"
+	"ecom/pkg/email"
 	"ecom/pkg/jwt"
-	"ecom/pkg/utils"
-	"errors"
 
 	"github.com/quangdangfit/gocommon/logger"
 	"github.com/quangdangfit/gocommon/validation"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type IUserService interface {
-	Register(ctx context.Context, req *dto.RegisterReq) (*entity.User, error)
-}
-
 type UserService struct {
-	repo *repository.UserRepo
+	repo   *repository.UserRepo
+	mailer *email.Sender
 }
 
-func NewUserService(
-	validator validation.Validation,
-	repo *repository.UserRepo) *UserService {
-	return &UserService{
-		repo: repo,
-	}
+func NewUserService(validator validation.Validation, repo *repository.UserRepo) *UserService {
+	cfg := config.GetEnv()
+	mailer := email.NewSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+	return &UserService{repo: repo, mailer: mailer}
 }
 
+// Login is for admin accounts only. Customer accounts use OTP.
 func (s *UserService) Login(ctx context.Context, req *dto.LoginReq) (*entity.User, string, string, error) {
 	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		logger.Errorf("Login.GetUserByEmail fail, email: %s, error: %s", req.Email, err)
-		return nil, "", "", err
+		return nil, "", "", errors.New("invalid credentials")
 	}
+
+	if user.Password == "" {
+		return nil, "", "", errors.New("this account uses OTP sign-in — please use the customer login page")
+	}
+
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, "", "", errors.New("Invalid credentials...")
+		return nil, "", "", errors.New("invalid credentials")
 	}
+
 	tokenData := map[string]interface{}{
 		"id":    user.ID,
 		"email": user.Email,
 		"role":  user.Role,
 	}
-	accessToken := jwt.GenerateAccessToken(tokenData)
-	refreshToken := jwt.GenerateRefreshToken(tokenData)
-
-	return user, accessToken, refreshToken, nil
+	return user, jwt.GenerateAccessToken(tokenData), jwt.GenerateRefreshToken(tokenData), nil
 }
 
-func (s *UserService) Register(ctx context.Context, req *dto.RegisterReq) (*entity.User, error) {
-	existingUser, err := s.repo.GetUserByEmail(ctx, req.Email)
-	if existingUser != nil {
-		logger.Errorf("User already exits for email: %s, error: %s", req.Email)
-		return nil, errors.New("User already exists")
-	}
-	var user entity.User
-	utils.Copy(&user, &req)
-	err = s.repo.Create(ctx, &user)
+// CheckEmail returns whether the email is already registered.
+func (s *UserService) CheckEmail(ctx context.Context, email string) bool {
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	return err == nil && user != nil
+}
+
+// SendOTP generates a 6-digit OTP and emails it to the user.
+// If the email is not registered and FirstName is provided, an account is created first.
+// Returns (isNewUser, error).
+func (s *UserService) SendOTP(ctx context.Context, req *dto.SendOTPReq) (bool, error) {
+	isNew := false
+
+	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		logger.Errorf("Register.Create fail, email: %s, error: %s", req.Email, err)
-		return nil, err
+		// User not found
+		if req.FirstName == "" {
+			return false, errors.New("no account found — please provide your name to register")
+		}
+		newUser := &entity.User{
+			FirstName: req.FirstName,
+			LastName:  req.LastName,
+			Email:     req.Email,
+		}
+		if createErr := s.repo.Create(ctx, newUser); createErr != nil {
+			logger.Errorf("SendOTP: failed to create user %s: %v", req.Email, createErr)
+			return false, errors.New("failed to create account")
+		}
+		user = newUser
+		isNew = true
 	}
-	return &user, nil
+	_ = user
+
+	code, err := generateOTP()
+	if err != nil {
+		return isNew, fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	// Invalidate any previous OTPs for this email
+	_ = s.repo.DeleteOTPsByEmail(ctx, req.Email)
+
+	otp := &entity.OTP{
+		Email:     req.Email,
+		Code:      code,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
+	}
+	if err := s.repo.CreateOTP(ctx, otp); err != nil {
+		return isNew, fmt.Errorf("failed to store OTP: %w", err)
+	}
+
+	subject := "Your MewaKhao sign-in code"
+	body := email.OTPEmailBody(code)
+	if err := s.mailer.Send(req.Email, subject, body); err != nil {
+		logger.Errorf("SendOTP: email delivery failed for %s: %v", req.Email, err)
+		// Don't fail the request — OTP is in DB, dev console shows it
+	}
+
+	return isNew, nil
 }
 
-// func (s *UserService) GetMe(ctx context.Context){
-// 	return nil
-// }
+// VerifyOTP checks the OTP, marks it used, and returns a JWT pair.
+func (s *UserService) VerifyOTP(ctx context.Context, req *dto.VerifyOTPReq) (*entity.User, string, string, error) {
+	otp, err := s.repo.GetActiveOTP(ctx, req.Email)
+	if err != nil {
+		return nil, "", "", errors.New("invalid or expired OTP")
+	}
+
+	if otp.Code != req.Code {
+		return nil, "", "", errors.New("incorrect OTP")
+	}
+
+	if err := s.repo.MarkOTPUsed(ctx, otp.ID); err != nil {
+		logger.Errorf("VerifyOTP: could not mark OTP used: %v", err)
+	}
+
+	user, err := s.repo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, "", "", errors.New("account not found")
+	}
+
+	tokenData := map[string]interface{}{
+		"id":    user.ID,
+		"email": user.Email,
+		"role":  user.Role,
+	}
+	return user, jwt.GenerateAccessToken(tokenData), jwt.GenerateRefreshToken(tokenData), nil
+}
+
+func generateOTP() (string, error) {
+	b := make([]byte, 3) // 3 bytes → 6 decimal digits via modulo
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	n := (int(b[0])<<16 | int(b[1])<<8 | int(b[2])) % 1_000_000
+	return fmt.Sprintf("%06d", n), nil
+}

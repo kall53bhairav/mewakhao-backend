@@ -19,8 +19,15 @@ func Routes(r *gin.RouterGroup, db *dbs.Database, validator validation.Validatio
 	authMiddleware := middleware.JWT(jwt.AccessTokenType, db)
 	authRoute := r.Group("/auth")
 	{
-		authRoute.POST("/register", userController.Register)
+		// Admin password login
 		authRoute.POST("/login", userController.Login)
+
+		// Customer OTP flow
+		authRoute.POST("/check-email", userController.CheckEmail)
+		authRoute.POST("/send-otp", userController.SendOTP)
+		authRoute.POST("/verify-otp", userController.VerifyOTP)
+
+		// Authenticated
 		authRoute.GET("/me", authMiddleware, userController.GetMe)
 	}
 }

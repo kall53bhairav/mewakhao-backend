@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"ecom/internal/user/entity"
 	"ecom/pkg/dbs"
@@ -40,4 +41,36 @@ func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*entity.Us
 	}
 
 	return &user, nil
+}
+
+// OTP methods
+
+func (r *UserRepo) CreateOTP(ctx context.Context, otp *entity.OTP) error {
+	return r.db.Create(ctx, otp)
+}
+
+// DeleteOTPsByEmail removes all existing OTPs for an email before issuing a new one.
+func (r *UserRepo) DeleteOTPsByEmail(ctx context.Context, email string) error {
+	return r.db.GetDB().WithContext(ctx).
+		Where("email = ?", email).
+		Delete(&entity.OTP{}).Error
+}
+
+func (r *UserRepo) GetActiveOTP(ctx context.Context, email string) (*entity.OTP, error) {
+	var otp entity.OTP
+	err := r.db.GetDB().WithContext(ctx).
+		Where("email = ? AND used = false AND expires_at > ?", email, time.Now()).
+		Order("created_at DESC").
+		First(&otp).Error
+	if err != nil {
+		return nil, err
+	}
+	return &otp, nil
+}
+
+func (r *UserRepo) MarkOTPUsed(ctx context.Context, id string) error {
+	return r.db.GetDB().WithContext(ctx).
+		Model(&entity.OTP{}).
+		Where("id = ?", id).
+		Update("used", true).Error
 }
