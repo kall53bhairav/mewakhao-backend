@@ -40,6 +40,7 @@ func NewOrderService(
 	ur *userRepo.UserRepo,
 	cfg *config.Schema,
 ) *OrderService {
+	logger.Info("Initializing OrderService", cfg)
 	return &OrderService{
 		repo:       repo,
 		cartRepo:   cr,
