@@ -27,7 +27,12 @@ func Routes(r *gin.RouterGroup, db *dbs.Database, validator validation.Validatio
 		authRoute.POST("/send-otp", userController.SendOTP)
 		authRoute.POST("/verify-otp", userController.VerifyOTP)
 
+		// Admin password reset
+		authRoute.POST("/forgot-password", userController.ForgotPassword)
+		authRoute.POST("/reset-password", userController.ResetPassword)
+
 		// Authenticated
 		authRoute.GET("/me", authMiddleware, userController.GetMe)
+		authRoute.PUT("/me", authMiddleware, userController.UpdateProfile)
 	}
 }

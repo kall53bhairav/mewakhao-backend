@@ -23,6 +23,7 @@ type Schema struct {
 	SMTPUser           string `env:"SMTP_USER"`
 	SMTPPass           string `env:"SMTP_PASS"`
 	SMTPFrom           string `env:"SMTP_FROM"`
+	FrontendURL        string `env:"FRONTEND_URL"`
 }
 
 const (
@@ -76,6 +77,11 @@ func LoadConfig() *Schema {
 		cfg.SMTPPort = p
 	} else {
 		cfg.SMTPPort = 587 // default STARTTLS
+	}
+
+	cfg.FrontendURL = os.Getenv("FRONTEND_URL")
+	if cfg.FrontendURL == "" {
+		cfg.FrontendURL = "http://localhost:3000"
 	}
 
 	return &cfg

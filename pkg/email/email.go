@@ -95,6 +95,23 @@ func sendViaClient(client *smtp.Client, auth smtp.Auth, from, to, msg string) er
 	return w.Close()
 }
 
+// PasswordResetEmailBody returns the HTML body for a password reset email.
+func PasswordResetEmailBody(firstName, resetURL string) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;max-width:480px;margin:40px auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px">
+  <h2 style="color:#16a34a;margin-bottom:8px">MewaKhao</h2>
+  <p style="color:#374151;margin-bottom:8px">Hi %s,</p>
+  <p style="color:#374151;margin-bottom:24px">Click the button below to reset your admin password. The link expires in <strong>1 hour</strong>.</p>
+  <div style="text-align:center;margin-bottom:24px">
+    <a href="%s" style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Reset Password</a>
+  </div>
+  <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="%s" style="color:#16a34a">%s</a></p>
+  <p style="color:#6b7280;font-size:13px;margin-top:24px">If you didn&apos;t request a password reset, you can safely ignore this email.</p>
+</body>
+</html>`, firstName, resetURL, resetURL, resetURL)
+}
+
 // OTPEmailBody returns the HTML body for an OTP email.
 func OTPEmailBody(otp string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>

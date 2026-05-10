@@ -14,6 +14,7 @@ import (
 	"ecom/pkg/email"
 	"ecom/pkg/jwt"
 
+	"github.com/google/uuid"
 	"github.com/quangdangfit/gocommon/logger"
 	"github.com/quangdangfit/gocommon/validation"
 	"golang.org/x/crypto/bcrypt"
@@ -138,6 +139,70 @@ func (s *UserService) VerifyOTP(ctx context.Context, req *dto.VerifyOTPReq) (*en
 		"role":  user.Role,
 	}
 	return user, jwt.GenerateAccessToken(tokenData), jwt.GenerateRefreshToken(tokenData), nil
+}
+
+// ForgotPassword sends a password reset link to the admin's email.
+// Always returns nil to avoid revealing whether an email is registered.
+func (s *UserService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordReq) error {
+	user, err := s.repo.GetUserByEmail(ctx, req.Email)
+	if err != nil || user == nil || user.Password == "" {
+		return nil
+	}
+
+	token := uuid.New().String()
+	expiresAt := time.Now().Add(1 * time.Hour)
+	user.PasswordResetToken = token
+	user.PasswordResetExpiresAt = &expiresAt
+	if err := s.repo.Update(ctx, user); err != nil {
+		return fmt.Errorf("failed to save reset token: %w", err)
+	}
+
+	cfg := config.GetEnv()
+	resetURL := fmt.Sprintf("%s/admin/reset-password?token=%s", cfg.FrontendURL, token)
+	body := email.PasswordResetEmailBody(user.FirstName, resetURL)
+	if err := s.mailer.Send(req.Email, "Reset your MewaKhao admin password", body); err != nil {
+		logger.Errorf("ForgotPassword: email failed for %s: %v", req.Email, err)
+	}
+
+	return nil
+}
+
+// ResetPassword validates the reset token and updates the admin's password.
+func (s *UserService) ResetPassword(ctx context.Context, req *dto.ResetPasswordReq) error {
+	user, err := s.repo.GetUserByResetToken(ctx, req.Token)
+	if err != nil || user == nil {
+		return errors.New("invalid or expired reset link")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	user.Password = string(hashed)
+	if err := s.repo.ClearPasswordResetToken(ctx, user.ID); err != nil {
+		logger.Errorf("ResetPassword: failed to clear token for %s: %v", user.ID, err)
+	}
+	user.PasswordResetToken = ""
+	user.PasswordResetExpiresAt = nil
+	return s.repo.Update(ctx, user)
+}
+
+// UpdateProfile updates a user's name fields.
+func (s *UserService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileReq) (*entity.User, error) {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	user.FirstName = req.FirstName
+	user.LastName = req.LastName
+
+	if err := s.repo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	return user, nil
 }
 
 func generateOTP() (string, error) {

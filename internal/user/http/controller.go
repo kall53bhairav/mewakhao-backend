@@ -120,3 +120,58 @@ func (c *UserController) GetMe(ctx *gin.Context) {
 	}
 	response.JSON(ctx, http.StatusOK, user)
 }
+
+func (c *UserController) UpdateProfile(ctx *gin.Context) {
+	userID := ctx.GetString("userId")
+	if userID == "" {
+		response.Error(ctx, http.StatusUnauthorized, errors.New("unauthorized"), "Unauthorized")
+		return
+	}
+
+	var req dto.UpdateProfileReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err, "Invalid parameters")
+		return
+	}
+	if err := c.validator.ValidateStruct(req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err, "Invalid parameters")
+		return
+	}
+
+	user, err := c.srv.UpdateProfile(ctx, userID, &req)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err, err.Error())
+		return
+	}
+
+	var res dto.User
+	utils.Copy(&res, &user)
+	response.JSON(ctx, http.StatusOK, res)
+}
+
+func (c *UserController) ForgotPassword(ctx *gin.Context) {
+	var req dto.ForgotPasswordReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err, "Invalid parameters")
+		return
+	}
+	_ = c.srv.ForgotPassword(ctx, &req)
+	response.JSON(ctx, http.StatusOK, gin.H{"message": "If that email is registered, a reset link has been sent"})
+}
+
+func (c *UserController) ResetPassword(ctx *gin.Context) {
+	var req dto.ResetPasswordReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err, "Invalid parameters")
+		return
+	}
+	if err := c.validator.ValidateStruct(req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err, "Invalid parameters")
+		return
+	}
+	if err := c.srv.ResetPassword(ctx, &req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err, err.Error())
+		return
+	}
+	response.JSON(ctx, http.StatusOK, gin.H{"message": "Password reset successfully"})
+}

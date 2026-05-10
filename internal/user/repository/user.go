@@ -74,3 +74,24 @@ func (r *UserRepo) MarkOTPUsed(ctx context.Context, id string) error {
 		Where("id = ?", id).
 		Update("used", true).Error
 }
+
+func (r *UserRepo) GetUserByResetToken(ctx context.Context, token string) (*entity.User, error) {
+	var user entity.User
+	err := r.db.GetDB().WithContext(ctx).
+		Where("password_reset_token = ? AND password_reset_expires_at > ?", token, time.Now()).
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserRepo) ClearPasswordResetToken(ctx context.Context, userID string) error {
+	return r.db.GetDB().WithContext(ctx).
+		Model(&entity.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"password_reset_token":      "",
+			"password_reset_expires_at": nil,
+		}).Error
+}
