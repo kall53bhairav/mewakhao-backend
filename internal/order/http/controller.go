@@ -3,6 +3,7 @@ package http
 import (
 	"ecom/internal/order/dto"
 	"ecom/internal/order/service"
+	userEntity "ecom/internal/user/entity"
 	"ecom/pkg/response"
 	"errors"
 	"net/http"
@@ -147,7 +148,7 @@ func (ctrl *OrderController) GetOrder(ctx *gin.Context) {
 
 	orderID := ctx.Param("id")
 	role, _ := ctx.Get("role")
-	isAdmin := role == "admin"
+	isAdmin := role == userEntity.UserRoleAdmin
 
 	order, err := ctrl.srv.GetOrderByID(ctx, userID, orderID, isAdmin)
 	if err != nil {
