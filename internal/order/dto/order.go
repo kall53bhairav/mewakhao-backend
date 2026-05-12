@@ -64,7 +64,11 @@ type GuestCheckoutRes struct {
 }
 
 type ApproveDeliveryReq struct {
-	AdminNotes string `json:"admin_notes"`
+	AdminNotes string  `json:"admin_notes"`
+	Length     float64 `json:"length"`
+	Breadth    float64 `json:"breadth"`
+	Height     float64 `json:"height"`
+	Weight     float64 `json:"weight"`
 }
 
 type RejectDeliveryReq struct {

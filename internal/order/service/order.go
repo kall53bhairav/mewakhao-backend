@@ -286,10 +286,10 @@ func (s *OrderService) ApproveDelivery(ctx context.Context, requestID, adminID s
 		OrderItems:        srItems,
 		PaymentMethod:     "Prepaid",
 		SubTotal:          order.Subtotal,
-		Length:            10,
-		Breadth:           10,
-		Height:            10,
-		Weight:            0.5,
+		Length:            dimensionOrDefault(req.Length, 10),
+		Breadth:           dimensionOrDefault(req.Breadth, 10),
+		Height:            dimensionOrDefault(req.Height, 10),
+		Weight:            dimensionOrDefault(req.Weight, 0.5),
 	}
 
 	srOrder, err := s.shiprocket.CreateOrder(srReq)
@@ -315,6 +315,13 @@ func (s *OrderService) ApproveDelivery(ctx context.Context, requestID, adminID s
 	}
 
 	return deliveryReq, nil
+}
+
+func dimensionOrDefault(v, def float64) float64 {
+	if v > 0 {
+		return v
+	}
+	return def
 }
 
 func (s *OrderService) RejectDelivery(ctx context.Context, requestID, adminID string, req *dto.RejectDeliveryReq) (*entity.DeliveryRequest, error) {
