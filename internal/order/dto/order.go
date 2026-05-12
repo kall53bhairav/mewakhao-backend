@@ -14,6 +14,7 @@ type ShippingAddressReq struct {
 	FirstName  string `json:"first_name" validate:"required"`
 	LastName   string `json:"last_name" validate:"required"`
 	Email      string `json:"email" validate:"required,email"`
+	PhoneCode  string `json:"phone_code" validate:"required"`
 	Phone      string `json:"phone" validate:"required"`
 	Address    string `json:"address" validate:"required"`
 	Apartment  string `json:"apartment"`

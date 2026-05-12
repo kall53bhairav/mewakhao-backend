@@ -72,6 +72,7 @@ type ShippingAddress struct {
 	FirstName  string    `json:"first_name"`
 	LastName   string    `json:"last_name"`
 	Email      string    `json:"email"`
+	PhoneCode  string    `json:"phone_code"`
 	Phone      string    `json:"phone"`
 	Address    string    `json:"address"`
 	Apartment  string    `json:"apartment"`
